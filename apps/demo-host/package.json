@@ -1,0 +1,22 @@
+{
+  "name": "@india-stack/demo-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal streamable-HTTP host exposing India Stack connectors over HTTP.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@india-stack/connector-gst": "*",
+    "@india-stack/connector-tally": "*",
+    "@india-stack/connector-zoho": "*",
+    "@india-stack/core": "*",
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

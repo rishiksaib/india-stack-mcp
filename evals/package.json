@@ -1,0 +1,10 @@
+{
+  "name": "india-stack-evals",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Record/replay eval scenarios for India Stack connector tools.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "search ledgers by substring",
+  "tool": "tally_search_ledgers",
+  "args": { "query": "sunrise" },
+  "expect": {
+    "ok": true,
+    "dataKeys": ["count", "ledgers"]
+  }
+}

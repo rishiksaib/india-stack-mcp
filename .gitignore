@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+india-stack-audit.jsonl
+*-audit.jsonl
+coverage/
+.DS_Store

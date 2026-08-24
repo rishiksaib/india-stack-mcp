@@ -1,0 +1,23 @@
+{
+  "name": "gst reconcile flags supplier invoices missing from 2B",
+  "tool": "gst_reconcile_2b",
+  "args": {
+    "purchases": [
+      {
+        "gstin": "27AAPFU0939F1ZV",
+        "invoice_number": "SUP-001",
+        "date": "2024-04-05",
+        "taxable_value": 10000,
+        "igst": 1800
+      }
+    ],
+    "gstr_2b_rows": [],
+    "value_tolerance": 1,
+    "tax_tolerance": 1,
+    "date_window_days": 7
+  },
+  "expect": {
+    "ok": true,
+    "dataKeys": ["summary", "entries_needing_action", "config"]
+  }
+}

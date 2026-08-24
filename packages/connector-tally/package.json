@@ -1,0 +1,32 @@
+{
+  "name": "@india-stack/connector-tally",
+  "version": "0.1.0",
+  "description": "MCP connector for TallyPrime: vouchers, ledgers, reports over the local XML gateway.",
+  "keywords": ["mcp", "model-context-protocol", "tally", "tallyprime", "accounting", "india", "ai-agents"],
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "bin": {
+    "tally-mcp": "./bin/tally-mcp.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@india-stack/core": "*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "fast-xml-parser": "^4.5.0",
+    "zod": "^3.24.1"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "zoho invoice creation defaults to dry-run preview",
+  "tool": "zoho_create_invoice",
+  "args": {
+    "customer_id": "c1",
+    "line_items": [
+      { "name": "Widget", "rate": 10, "quantity": 100 }
+    ]
+  },
+  "expect": {
+    "ok": true,
+    "dataKeys": ["previewed"]
+  }
+}

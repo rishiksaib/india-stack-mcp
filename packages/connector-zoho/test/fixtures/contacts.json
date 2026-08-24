@@ -1,0 +1,22 @@
+{
+  "code": 0,
+  "message": "success",
+  "page_context": { "page": 1, "per_page": 100, "has_more_page": false },
+  "contacts": [
+    {
+      "contact_id": "460000000017",
+      "contact_name": "Sunrise Stores",
+      "contact_type": "customer",
+      "email": "billing@sunrisestores.in",
+      "gstin": "27AAPFU0939F1ZV",
+      "outstanding_receivable_amount": 11800,
+      "outstanding_payable_amount": 0
+    },
+    {
+      "contact_id": "460000000018",
+      "contact_name": "Global Suppliers",
+      "contact_type": "vendor",
+      "outstanding_payable_amount": 45000
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "reject an unbalanced journal voucher before upstream",
+  "tool": "tally_create_voucher",
+  "args": {
+    "voucher_type": "Journal",
+    "date": "2024-04-07",
+    "dry_run": false,
+    "lines": [
+      { "ledger_name": "Rent", "amount": -25000 },
+      { "ledger_name": "HDFC Bank", "amount": 24000 }
+    ]
+  },
+  "expect": {
+    "ok": false,
+    "errorContains": "not balanced"
+  }
+}
