@@ -4,6 +4,14 @@
   "private": true,
   "description": "Production-grade MCP servers for Indian enterprise systems: Tally, Zoho Books, GST. Agents that can do books and file taxes in India.",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/rishiksaib/india-stack-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rishiksaib/india-stack-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rishiksaib/india-stack-mcp/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=20"

@@ -5,7 +5,7 @@ Everything needed to go from this repo to discoverable-by-buyers.
 ## 1. GitHub
 
 ```bash
-git remote add origin git@github.com:<you>/india-stack-mcp.git
+git remote add origin https://github.com/rishiksaib/india-stack-mcp.git
 git push -u origin main
 ```
 
@@ -23,8 +23,8 @@ npm publish --access public -w @india-stack/connector-zoho
 npm publish --access public -w @india-stack/connector-gst
 ```
 
-Before first publish, set `"repository"` / `"homepage"` fields in each package.json to the
-GitHub URL (registries rank linked packages higher). Keep `demo-host` private.
+Repository/homepage/bugs fields are already wired to
+`github.com/rishiksaib/india-stack-mcp`. Keep `demo-host` private.
 
 ## 3. MCP registries and directories (in order of traffic)
 

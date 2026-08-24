@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "Shared primitives for India Stack MCP connectors: tool definition, audit log, credential vault, errors, idempotency.",
   "keywords": ["mcp", "model-context-protocol", "ai-agents", "india", "accounting", "fintech"],
+  "homepage": "https://github.com/rishiksaib/india-stack-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rishiksaib/india-stack-mcp.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/rishiksaib/india-stack-mcp/issues"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",

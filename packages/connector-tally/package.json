@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "MCP connector for TallyPrime: vouchers, ledgers, reports over the local XML gateway.",
   "keywords": ["mcp", "model-context-protocol", "tally", "tallyprime", "accounting", "india", "ai-agents"],
+  "homepage": "https://github.com/rishiksaib/india-stack-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rishiksaib/india-stack-mcp.git",
+    "directory": "packages/connector-tally"
+  },
+  "bugs": {
+    "url": "https://github.com/rishiksaib/india-stack-mcp/issues"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
