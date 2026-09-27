@@ -1,0 +1,10 @@
+{
+  "name": "india-stack-mcp",
+  "description": "An offline-first, high-performance Model Context Protocol server enabling AI agents to interact with Indian tax calculations, GSTIN, PAN validation, and localized business infrastructure.",
+  "version": "0.6.0",
+  "homepage": "https://rishiksai.online",
+  "repository": "https://github.com",
+  "transport": "stdio",
+  "keywords": ["mcp", "india-stack", "fintech", "tally", "gstin", "claude-agent"],
+  "license": "MIT"
+}
