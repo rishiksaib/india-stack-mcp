@@ -36,7 +36,7 @@ describe("e-invoice payload builder", () => {
     expect(item0.TotAmt).toBe(10000);
     expect(item0.AssAmt).toBe(10000);
     expect(item0.IgstAmt).toBe(1800);
-    expect(item0.CgstAmt).toBeUndefined();
+    expect(item0.CgstAmt).toBe(0);
 
     const item1 = payload.ItemList[1]!;
     expect(item1.TotAmt).toBe(500.25);
@@ -69,7 +69,7 @@ describe("e-invoice payload builder", () => {
   it("rejects non-standard GST rates and bad HSN codes", () => {
     expect(() =>
       buildEinvoicePayload({ documentNumber: "X", documentDate: "2024-04-05", seller, buyer: buyerInterstate, items: [{ ...baseItems[0]!, taxRatePercent: 11 }] })
-    ).toThrowError(/standard GST rate/);
+    ).toThrowError(/not a GST rate/);
     expect(() =>
       buildEinvoicePayload({ documentNumber: "X", documentDate: "2024-04-05", seller, buyer: buyerInterstate, items: [{ ...baseItems[0]!, hsnCode: "12" }] })
     ).toThrowError(/HSN/);

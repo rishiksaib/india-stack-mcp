@@ -6,7 +6,7 @@
       "env": {
         "TALLY_URL": "http://localhost:9000",
         "TALLY_COMPANY": "Acme Traders Pvt Ltd",
-        "INDIA_STACK_AUDIT_LOG": "C:\\path\\to\\india-stack-audit.jsonl"
+        "INDIA_STACK_AUDIT_LOG": "C:\\path\\to\\audit\\tally-audit.jsonl"
       }
     },
     "zoho": {
@@ -18,8 +18,12 @@
         "ZOHO_REFRESH_TOKEN": "1000.yyyy.zzzz",
         "ZOHO_DC": "in",
         "ZOHO_ORGANIZATION_ID": "700000000000",
-        "INDIA_STACK_AUDIT_LOG": "C:\\path\\to\\zoho-audit.jsonl"
+        "INDIA_STACK_AUDIT_LOG": "C:\\path\\to\\audit\\zoho-audit.jsonl"
       }
+    },
+    "gst": {
+      "command": "node",
+      "args": ["C:\\path\\to\\india-stack-mcp\\packages\\connector-gst\\bin\\gst-mcp.js"]
     }
   }
 }

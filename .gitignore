@@ -8,3 +8,6 @@ india-stack-audit.jsonl
 *-audit.jsonl
 coverage/
 .DS_Store
+*.idempotency.json
+*.idempotency.json.tmp
+audit/

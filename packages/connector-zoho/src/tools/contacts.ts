@@ -44,15 +44,25 @@ export function makeContactTools(client: ZohoClient): RegisteredTool[] {
 
   const createContact = defineTool({
     name: "zoho_create_contact",
-    description: "Create a customer or vendor. GSTIN is validated by Zoho when provided.",
+    description:
+      "Create a customer or vendor. For a GST-registered contact pass gstin (sent to Zoho as gst_no); gst_treatment then defaults to business_gst. Defaults to a dry-run preview.",
     scope: "write",
     inputSchema: {
       name: z.string().min(1).describe("Display name of the contact."),
       type: z.enum(["customer", "vendor"]).optional().default("customer"),
       email: z.string().email().optional(),
       phone: z.string().optional(),
-      gstin: z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]\d[A-Z][A-Z\d]$/, "GSTIN must be a valid 15-character GSTIN").optional(),
-      place_of_contact: z.string().optional().describe("Place of supply state code or name."),
+      gstin: z
+        .string()
+        .transform((v) => v.trim().toUpperCase())
+        .pipe(z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/, "GSTIN must be a valid 15-character GSTIN"))
+        .optional()
+        .describe("15-character GSTIN. Validate it first with gst_validate_gstin."),
+      gst_treatment: z
+        .enum(["business_gst", "business_none", "overseas", "consumer"])
+        .optional()
+        .describe("business_gst (registered), business_none (unregistered business), consumer, overseas. Defaults to business_gst when gstin is given."),
+      place_of_contact: z.string().regex(/^[A-Za-z]{2}$/, "use the 2-letter state code, e.g. MH, TS, KA").optional().describe("2-letter state code of the contact, e.g. MH."),
       organization_id: orgParam
     },
     handler: async (args) => {
@@ -63,6 +73,7 @@ export function makeContactTools(client: ZohoClient): RegisteredTool[] {
           email: args.email,
           phone: args.phone,
           gstin: args.gstin,
+          gstTreatment: args.gst_treatment,
           placeOfContact: args.place_of_contact
         },
         { dryRun: args.dry_run !== false, organizationId: args.organization_id }

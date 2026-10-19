@@ -4,12 +4,14 @@ import type { AuditSink } from "../audit/fileAuditLog.js";
 import type { CredentialVault } from "../auth/vault.js";
 import { ErrorCode, ConnectorError, wrapUnknown } from "../errors.js";
 import type { IdempotencyStore } from "../idempotency.js";
-import { idempotencyKey } from "../idempotency.js";
+import { argsFingerprint } from "../idempotency.js";
 
 export type ToolScope = "read" | "write";
 
 export interface Approver {
   request(req: { tool: string; summary: unknown }): Promise<"allow" | "deny">;
+  /** Optional human-readable reason for the last decision, surfaced in the tool error. */
+  lastReason?: string;
 }
 
 export class AllowAllApprover implements Approver {
@@ -69,10 +71,19 @@ export function defineTool<S extends ZodRawShape>(def: ToolDefinition<S>): Regis
     const action: "read" | "dry_run" | "execute" | "denied" | "error" = isWrite ? (dryRun ? "dry_run" : "execute") : "read";
 
     try {
-      let key: string | undefined;
-      if (isWrite && !dryRun) {
-        key = args.idempotency_key ?? idempotencyKey(def.name, ctx.connector, args as Record<string, unknown>);
+      // Deduplicate only when the caller supplies an explicit key. Two identical-looking writes
+      // without a key (e.g. two ₹500 cash sales on the same day) are both genuine and both post.
+      const key = isWrite && !dryRun && args.idempotency_key ? `${def.name}|${ctx.connector}|${args.idempotency_key}` : undefined;
+      const fingerprint = key ? argsFingerprint(def.name, ctx.connector, args as Record<string, unknown>) : undefined;
+      if (key) {
         const cached = await ctx.idempotency.get(key);
+        if (cached && cached.fingerprint && cached.fingerprint !== fingerprint) {
+          throw new ConnectorError(
+            ErrorCode.ValidationError,
+            `idempotency_key "${args.idempotency_key}" was already used for a different ${def.name} request. Use a new key for a new entry.`,
+            { detail: { idempotencyKey: args.idempotency_key } }
+          );
+        }
         if (cached) {
           ctx.audit.append({
             actor: ctx.actor,
@@ -88,14 +99,17 @@ export function defineTool<S extends ZodRawShape>(def: ToolDefinition<S>): Regis
             ok: true,
             output: {
               data: typeof cached.summary === "object" && cached.summary !== null ? { ...(cached.summary as Record<string, unknown>) } : { summary: cached.summary },
-              meta: { duplicate: true, idempotencyKey: key }
+              meta: { duplicate: true, idempotencyKey: args.idempotency_key, note: "Already completed earlier with this idempotency_key; nothing was sent again." }
             }
           };
         }
       }
 
       if (isWrite && !dryRun && def.destructive) {
-        const decision = await ctx.approver.request({ tool: def.name, summary: args });
+        const business = Object.fromEntries(
+          Object.entries(args as Record<string, unknown>).filter(([k]) => k !== "dry_run" && k !== "idempotency_key")
+        );
+        const decision = await ctx.approver.request({ tool: def.name, summary: business });
         if (decision === "deny") {
           ctx.audit.append({
             actor: ctx.actor,
@@ -106,13 +120,13 @@ export function defineTool<S extends ZodRawShape>(def: ToolDefinition<S>): Regis
             durationMs: Date.now() - started,
             input: args
           });
-          throw new ConnectorError(ErrorCode.ApprovalRequired, `Human approval denied for ${def.name}`);
+          throw new ConnectorError(ErrorCode.ApprovalRequired, `Human approval not given for ${def.name}. ${ctx.approver.lastReason ?? ""}`.trim());
         }
       }
 
       const output = await def.handler(args, ctx);
 
-      if (key) await ctx.idempotency.put(key, output.data);
+      if (key) await ctx.idempotency.put(key, output.data, fingerprint);
       ctx.audit.append({
         actor: ctx.actor,
         connector: ctx.connector,
@@ -126,7 +140,14 @@ export function defineTool<S extends ZodRawShape>(def: ToolDefinition<S>): Regis
 
       return { ok: true, output };
     } catch (err) {
-      const ce = wrapUnknown(err);
+      let ce = wrapUnknown(err);
+      if (isWrite && !dryRun && ce.code === ErrorCode.UpstreamUnreachable && /timeout|aborted/i.test(ce.message)) {
+        // The request may have reached the upstream before the connection dropped.
+        ce = new ConnectorError(ce.code, `${ce.message}. The write may or may not have been applied: check the upstream system before retrying.`, {
+          retryable: false,
+          detail: { ...(ce.detail ?? {}), outcomeUnknown: true }
+        });
+      }
       ctx.audit.append({
         actor: ctx.actor,
         connector: ctx.connector,

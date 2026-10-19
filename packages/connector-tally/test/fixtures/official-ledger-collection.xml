@@ -1,0 +1,33 @@
+<!-- Shape per Tally developer reference (Case Study I, collection export): records under
+     ENVELOPE/BODY/DATA/COLLECTION, object name as an attribute, typed child values. -->
+<ENVELOPE>
+ <HEADER><VERSION>1</VERSION><STATUS>1</STATUS></HEADER>
+ <BODY>
+  <DESC></DESC>
+  <DATA>
+   <COLLECTION>
+    <LEDGER NAME="Rent" RESERVEDNAME="">
+     <PARENT TYPE="String">Indirect Expenses</PARENT>
+     <OPENINGBALANCE TYPE="Amount">0.00</OPENINGBALANCE>
+     <CLOSINGBALANCE TYPE="Amount">-25000.00</CLOSINGBALANCE>
+    </LEDGER>
+    <LEDGER NAME="HDFC Bank" RESERVEDNAME="">
+     <PARENT TYPE="String">Bank Accounts</PARENT>
+     <OPENINGBALANCE TYPE="Amount">-100000.00</OPENINGBALANCE>
+     <CLOSINGBALANCE TYPE="Amount">-75000.00</CLOSINGBALANCE>
+    </LEDGER>
+    <LEDGER NAME="Capital Account" RESERVEDNAME="">
+     <PARENT TYPE="String">Capital Account</PARENT>
+     <OPENINGBALANCE TYPE="Amount">100000.00</OPENINGBALANCE>
+     <CLOSINGBALANCE TYPE="Amount">100000.00</CLOSINGBALANCE>
+    </LEDGER>
+    <LEDGER NAME="Global Suppliers" RESERVEDNAME="">
+     <PARENT TYPE="String">Sundry Creditors</PARENT>
+     <PARTYGSTIN TYPE="String">27AAPFU0939F1ZV</PARTYGSTIN>
+     <OPENINGBALANCE TYPE="Amount">0.00</OPENINGBALANCE>
+     <CLOSINGBALANCE TYPE="Amount">0.00</CLOSINGBALANCE>
+    </LEDGER>
+   </COLLECTION>
+  </DATA>
+ </BODY>
+</ENVELOPE>

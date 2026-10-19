@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { makeToolContext, serveStdio, type ToolContext } from "@india-stack/core";
+import { makeToolContext, serveStdio, useElicitationApprover, type ToolContext } from "@india-stack/core";
 import { TallyClient } from "./client/tallyClient.js";
 import type { TallyClientConfig } from "./client/types.js";
 import { makeCompanyTools } from "./tools/companies.js";
@@ -8,12 +8,12 @@ import { makeReportTools } from "./tools/reports.js";
 import { makeVoucherTools } from "./tools/vouchers.js";
 
 export const SERVER_NAME = "india-stack-tally";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.2.0";
 
 export function createTallyServer(config: TallyClientConfig = {}, context?: ToolContext): McpServer {
   const client = new TallyClient(config);
-  const ctx = context ?? makeToolContext({ connector: "tally" });
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
+  const ctx = context ?? useElicitationApprover(server, makeToolContext({ connector: "tally" }));
 
   for (const tool of [
     ...makeCompanyTools(client),

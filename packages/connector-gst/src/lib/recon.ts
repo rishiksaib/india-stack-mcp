@@ -2,10 +2,12 @@ export interface PurchaseRow {
   gstin?: string;
   invoiceNumber?: string;
   date?: string;
+  /** Negative for credit notes / debit notes that reduce ITC. */
   taxableValue: number;
   igst?: number;
   cgst?: number;
   sgst?: number;
+  cess?: number;
 }
 
 export interface Gstr2bRow {
@@ -16,6 +18,7 @@ export interface Gstr2bRow {
   igst?: number;
   cgst?: number;
   sgst?: number;
+  cess?: number;
   itcAvailable?: boolean;
   supplierFilingStatus?: string;
 }
@@ -46,6 +49,8 @@ export interface ReconEntry {
   book?: PurchaseRow & { normalizedInvoice?: string };
   gstr2b?: Gstr2bRow & { normalizedInvoice?: string };
   diffs?: ReconDiff[];
+  /** GSTR-2B marks this invoice's ITC as not available (e.g. Section 17(5), time-barred). */
+  itcUnavailable?: boolean;
 }
 
 export interface ReconSummary {
@@ -56,8 +61,14 @@ export interface ReconSummary {
   mismatches: number;
   missingIn2b: number;
   missingInBooks: number;
+  /** Matched rows whose ITC GSTR-2B marks as not available. */
+  itcUnavailable: number;
+  /** Tax on invoices in 2B but not booked: ITC the business can claim once it books them. */
   itcAtRisk: number;
+  /** Tax on booked invoices missing from 2B: not claimable until the supplier files. */
   excessClaimRisk: number;
+  /** Tax on matched invoices that 2B marks as ITC not available. */
+  ineligibleItc: number;
 }
 
 export interface ReconReport {
@@ -71,8 +82,8 @@ export function normalizeInvoiceNumber(input: string | undefined): string {
   return input.toUpperCase().replace(/[\s\-/\\._]/g, "").replace(/^0+(?=\d)/, "");
 }
 
-function taxOf(row: { igst?: number; cgst?: number; sgst?: number }): number {
-  return round2((row.igst ?? 0) + (row.cgst ?? 0) + (row.sgst ?? 0));
+export function taxOf(row: { igst?: number; cgst?: number; sgst?: number; cess?: number }): number {
+  return round2((row.igst ?? 0) + (row.cgst ?? 0) + (row.sgst ?? 0) + (row.cess ?? 0));
 }
 
 function round2(n: number): number {
@@ -115,7 +126,6 @@ export function reconcile2b(purchases: PurchaseRow[], gstr2b: Gstr2bRow[], confi
   };
 
   const usedBooks = new Set<number>();
-  const used2b = new Set<number>();
   const entries: ReconEntry[] = [];
 
   const booksByExact = new Map<string, number[]>();
@@ -127,7 +137,7 @@ export function reconcile2b(purchases: PurchaseRow[], gstr2b: Gstr2bRow[], confi
     booksByExact.set(k, list);
   }
 
-  for (const [index2b, row] of gstr2b.entries()) {
+  for (const row of gstr2b) {
     let status: ReconStatus | null = null;
     let matchedBook: number | null = null;
 
@@ -152,20 +162,22 @@ export function reconcile2b(purchases: PurchaseRow[], gstr2b: Gstr2bRow[], confi
       entries.push({
         status: "missing_in_books",
         key: entryKey(row),
-        gstr2b: { ...row, normalizedInvoice: normalizeInvoiceNumber(row.invoiceNumber) }
+        gstr2b: { ...row, normalizedInvoice: normalizeInvoiceNumber(row.invoiceNumber) },
+        ...(row.itcAvailable === false ? { itcUnavailable: true } : {})
       });
       continue;
     }
 
     usedBooks.add(matchedBook);
-    used2b.add(index2b);
-    const diffs = diffRows(purchases[matchedBook]!, row, cfg);
+    const book = purchases[matchedBook]!;
+    const diffs = diffRows(book, row, cfg);
     entries.push({
       status: diffs.length > 0 ? "mismatch" : (status ?? "matched_fuzzy"),
-      key: entryKey(purchases[matchedBook]!),
-      book: { ...purchases[matchedBook]!, normalizedInvoice: normalizeInvoiceNumber(purchases[matchedBook]!.invoiceNumber) },
+      key: entryKey(book),
+      book: { ...book, normalizedInvoice: normalizeInvoiceNumber(book.invoiceNumber) },
       gstr2b: { ...row, normalizedInvoice: normalizeInvoiceNumber(row.invoiceNumber) },
-      ...(diffs.length > 0 ? { diffs } : {})
+      ...(diffs.length > 0 ? { diffs } : {}),
+      ...(row.itcAvailable === false ? { itcUnavailable: true } : {})
     });
   }
 
@@ -180,12 +192,12 @@ export function reconcile2b(purchases: PurchaseRow[], gstr2b: Gstr2bRow[], confi
 
   let itcAtRisk = 0;
   let excessClaimRisk = 0;
+  let ineligibleItc = 0;
   for (const e of entries) {
-    if (e.status === "missing_in_books") itcAtRisk += taxOf(e.gstr2b!);
+    if (e.status === "missing_in_books" && !e.itcUnavailable) itcAtRisk += taxOf(e.gstr2b!);
     if (e.status === "missing_in_2b") excessClaimRisk += taxOf(e.book!);
+    if (e.itcUnavailable && e.book) ineligibleItc += taxOf(e.book);
   }
-
-  void used2b;
 
   return {
     config: cfg,
@@ -197,8 +209,10 @@ export function reconcile2b(purchases: PurchaseRow[], gstr2b: Gstr2bRow[], confi
       mismatches: count(entries, "mismatch"),
       missingIn2b: count(entries, "missing_in_2b"),
       missingInBooks: count(entries, "missing_in_books"),
+      itcUnavailable: entries.filter((e) => e.itcUnavailable && e.book).length,
       itcAtRisk: round2(itcAtRisk),
-      excessClaimRisk: round2(excessClaimRisk)
+      excessClaimRisk: round2(excessClaimRisk),
+      ineligibleItc: round2(ineligibleItc)
     },
     entries
   };
@@ -221,6 +235,8 @@ function findFuzzyMatch(
   for (const [i, p] of purchases.entries()) {
     if (usedBooks.has(i)) continue;
     if ((p.gstin ?? "").trim().toUpperCase() !== row.gstin.trim().toUpperCase()) continue;
+    // A credit note never matches an invoice.
+    if (Math.sign(p.taxableValue) !== Math.sign(row.taxableValue) && p.taxableValue !== 0 && row.taxableValue !== 0) continue;
     const dv = Math.abs(round2(p.taxableValue - row.taxableValue));
     if (dv > Math.max(cfg.valueTolerance * 10, 10)) continue;
     let score = dv + Math.abs(taxOf(p) - taxOf(row));

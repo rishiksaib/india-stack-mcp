@@ -48,33 +48,41 @@ describe("voucher message builder", () => {
     date: "2024-04-05",
     partyLedger: "Sunrise Stores",
     narration: "Test sale",
+    // Connector convention: positive = debit. The customer is debited, sales and tax credited.
     lines: [
-      { ledgerName: "Sunrise Stores", amount: -11800 },
-      { ledgerName: "Sales Account", amount: 10000 },
-      { ledgerName: "Output CGST", amount: 900 },
-      { ledgerName: "Output SGST", amount: 900 }
+      { ledgerName: "Sunrise Stores", amount: 11800 },
+      { ledgerName: "Sales Account", amount: -10000 },
+      { ledgerName: "Output CGST", amount: -900 },
+      { ledgerName: "Output SGST", amount: -900 }
     ]
   };
 
-  it("maps debits positive / credits negative with ISDEEMEDPOSITIVE", () => {
+  it("writes debits as ISDEEMEDPOSITIVE=Yes with a negative AMOUNT, credits as No/positive (Tally convention)", () => {
     const msg = voucherImportMessage(voucher);
     expect(msg).toContain('<VOUCHER VCHTYPE="Sales" ACTION="Create" OBJVIEW="Accounting Voucher View">');
     expect(msg).toContain("<DATE>20240405</DATE>");
     expect(msg).toContain("<PARTYLEDGERNAME>Sunrise Stores</PARTYLEDGERNAME>");
-    expect(msg).toContain("<LEDGERNAME>Sunrise Stores</LEDGERNAME><ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE><AMOUNT>-11800.00</AMOUNT>");
+    expect(msg).toContain(
+      "<LEDGERNAME>Sunrise Stores</LEDGERNAME><ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE><ISPARTYLEDGER>Yes</ISPARTYLEDGER><AMOUNT>-11800.00</AMOUNT>"
+    );
     expect(msg).toContain("<LEDGERNAME>Sales Account</LEDGERNAME><ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE><AMOUNT>10000.00</AMOUNT>");
+    expect(msg).toContain("<LEDGERNAME>Output CGST</LEDGERNAME><ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE><AMOUNT>900.00</AMOUNT>");
   });
 
   it("rejects unbalanced vouchers client-side (client level covered elsewhere)", () => {
     expect(voucher.lines.reduce((a, l) => a + l.amount, 0)).toBe(0);
   });
 
-  it("builds delete messages for remoteId or number+type+date", () => {
+  it("builds delete messages by master id, remote id, or number+type+date", () => {
+    expect(voucherDeleteMessage({ masterId: "119", voucherType: "Payment", date: "2024-04-07" })).toContain(
+      '<VOUCHER DATE="07-Apr-2024" TAGNAME="MASTER ID" TAGVALUE="119" VCHTYPE="Payment" ACTION="Delete"/>'
+    );
     expect(voucherDeleteMessage({ remoteId: "abc-123" })).toContain('<VOUCHER REMOTEID="abc-123" ACTION="Delete"');
     expect(voucherDeleteMessage({ voucherNumber: "INV/24-25/001", voucherType: "Sales", date: "2024-04-05" })).toContain(
-      "<VOUCHERNUMBER>INV/24-25/001</VOUCHERNUMBER>"
+      'TAGNAME="Voucher Number" TAGVALUE="INV/24-25/001"'
     );
     expect(() => voucherDeleteMessage({})).toThrow();
+    expect(() => voucherDeleteMessage({ masterId: "1" })).toThrow(/voucher_type and date/);
   });
 });
 
@@ -107,7 +115,9 @@ describe("parsers", () => {
   });
 
   it("parses balances with Dr/Cr and sign conventions", () => {
-    expect(parseBalance("-11800.00")).toBe(-11800);
+    // Tally writes debits as negative numbers; the connector reports debit as positive.
+    expect(parseBalance("-11800.00")).toBe(11800);
+    expect(parseBalance("5000.00")).toBe(-5000);
     expect(parseBalance("25,000.00 Dr")).toBe(25000);
     expect(parseBalance("25000.00 Cr")).toBe(-25000);
     expect(parseBalance(undefined)).toBeUndefined();

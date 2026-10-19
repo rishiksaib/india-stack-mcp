@@ -1,0 +1,12 @@
+{
+  "name": "gst e-invoice builds from snake_case tool arguments",
+  "tool": "gst_einvoice_build",
+  "args": {
+    "document_number": "INV/26-27/001",
+    "document_date": "2026-10-01",
+    "seller": { "gstin": "27AAPFU0939F1ZV", "legal_name": "Acme", "address": "12 MG Road", "location": "Pune", "pincode": "411001", "state_code": "27" },
+    "buyer": { "gstin": "27AAPFU0939F1ZV", "legal_name": "Buyer", "address": "1 FC Road", "location": "Pune", "pincode": "411004", "state_code": "27" },
+    "items": [{ "hsn_code": "8471", "quantity": 1, "unit_price": 1000, "tax_rate_percent": 18 }]
+  },
+  "expect": { "ok": true, "dataKeys": ["payload", "totals"] }
+}

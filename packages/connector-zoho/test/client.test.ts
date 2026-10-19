@@ -114,7 +114,9 @@ describe("ZohoClient against a stub gateway", () => {
     expect(result).toHaveProperty("preview");
     const preview = (result as { preview: Record<string, unknown> }).preview;
     expect(preview.contact_name).toBe("New Party");
-    expect(preview.gstin).toBe("29AAACR5055K1Z5");
+    expect(preview.gst_no).toBe("29AAACR5055K1Z5");
+    expect(preview.gst_treatment).toBe("business_gst");
+    expect(preview.gstin).toBeUndefined();
     const postsBefore = received.filter((r) => r.path.startsWith("/books/v3/contacts") && r.method === "POST").length;
     expect(postsBefore).toBe(0);
   });

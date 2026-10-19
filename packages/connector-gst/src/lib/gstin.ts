@@ -40,9 +40,9 @@ export const GST_STATE_CODES: Record<string, string> = {
 
 const ENTITY_TYPES: Record<string, string> = {
   C: "Company",
-  P: "Partnership / LLP / Proprietorship (PAN holder type)",
+  P: "Individual (incl. Proprietorship)",
   H: "Hindu Undivided Family",
-  F: "Partnership Firm",
+  F: "Partnership Firm / LLP",
   A: "Association of Persons",
   T: "Trust",
   B: "Body of Individuals",

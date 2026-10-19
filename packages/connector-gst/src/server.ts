@@ -5,7 +5,7 @@ import { makeGstinTools } from "./tools/gstinTools.js";
 import { makeReconTools } from "./tools/reconTools.js";
 
 export const SERVER_NAME = "india-stack-gst";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.2.0";
 
 export function createGstServer(context?: ToolContext): McpServer {
   const ctx = context ?? makeToolContext({ connector: "gst" });
