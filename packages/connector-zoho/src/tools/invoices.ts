@@ -46,7 +46,7 @@ export function makeInvoiceTools(client: ZohoClient): RegisteredTool[] {
   const createInvoice = defineTool({
     name: "zoho_create_invoice",
     description:
-      "Create an invoice for a customer. Line items reference existing item_id (rate/qty applied) or free-text name+rate. Defaults to a dry-run preview.",
+      "Create an invoice for a customer. Line items reference an existing item_id or free-text name+rate. For GST, set place_of_supply and give each line a tax_id (the org's GST rate; copy it from an existing invoice via zoho_get_invoice) and hsn_or_sac. Defaults to a dry-run preview.",
     scope: "write",
     inputSchema: {
       customer_id: z.string().min(1).describe("Zoho contact_id of the customer."),
@@ -56,8 +56,10 @@ export function makeInvoiceTools(client: ZohoClient): RegisteredTool[] {
             item_id: z.string().optional(),
             name: z.string().optional(),
             description: z.string().optional(),
-            rate: z.number().describe("Unit rate in the org's currency."),
-            quantity: z.number().positive()
+            rate: z.number().describe("Unit rate in the org's currency, before GST."),
+            quantity: z.number().positive(),
+            tax_id: z.string().optional().describe("Zoho tax_id of the GST rate to apply (see any existing invoice's line items)."),
+            hsn_or_sac: z.string().regex(/^\d{4,8}$/, "HSN/SAC must be 4-8 digits").optional()
           })
         )
         .min(1)
@@ -67,6 +69,9 @@ export function makeInvoiceTools(client: ZohoClient): RegisteredTool[] {
       date: dateParam.optional().describe("Defaults to today."),
       due_date: dateParam.optional(),
       notes: z.string().optional(),
+      place_of_supply: z.string().regex(/^[A-Za-z]{2}$/, "use the 2-letter state code, e.g. MH").optional().describe("2-letter state code of the place of supply; decides CGST+SGST vs IGST."),
+      gst_treatment: z.enum(["business_gst", "business_none", "overseas", "consumer"]).optional(),
+      gst_no: z.string().optional().describe("Customer GSTIN on this invoice, if different from the contact's."),
       organization_id: orgParam
     },
     handler: async (args) => {
@@ -77,7 +82,18 @@ export function makeInvoiceTools(client: ZohoClient): RegisteredTool[] {
         date: args.date,
         dueDate: args.due_date,
         notes: args.notes,
-        lineItems: args.line_items.map((l) => ({ itemId: l.item_id, name: l.name, description: l.description, rate: l.rate, quantity: l.quantity }))
+        placeOfSupply: args.place_of_supply,
+        gstTreatment: args.gst_treatment,
+        gstNo: args.gst_no,
+        lineItems: args.line_items.map((l) => ({
+          itemId: l.item_id,
+          name: l.name,
+          description: l.description,
+          rate: l.rate,
+          quantity: l.quantity,
+          taxId: l.tax_id,
+          hsnOrSac: l.hsn_or_sac
+        }))
       };
       const result = await client.createInvoice(input, { dryRun: args.dry_run !== false, organizationId: args.organization_id });
       if ("preview" in result) {

@@ -1,8 +1,17 @@
 {
   "name": "@india-stack/connector-zoho",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP connector for Zoho Books: contacts, invoices, items, payments, chart of accounts over the official REST API.",
-  "keywords": ["mcp", "model-context-protocol", "zoho", "zoho-books", "accounting", "invoicing", "india", "ai-agents"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "zoho",
+    "zoho-books",
+    "accounting",
+    "invoicing",
+    "india",
+    "ai-agents"
+  ],
   "homepage": "https://github.com/rishiksaib/india-stack-mcp#readme",
   "repository": {
     "type": "git",
@@ -33,8 +42,14 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@india-stack/core": "*",
+    "@india-stack/core": "^0.2.0",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "zod": "^3.24.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

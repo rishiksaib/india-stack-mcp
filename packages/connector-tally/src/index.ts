@@ -4,4 +4,5 @@ export * from "./tools/companies.js";
 export * from "./tools/ledgers.js";
 export * from "./tools/vouchers.js";
 export * from "./tools/reports.js";
+export * from "./lib/purchaseRegister.js";
 export * from "./server.js";

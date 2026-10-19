@@ -28,7 +28,11 @@ export function makeFinanceTools(client: ZohoClient): RegisteredTool[] {
       customer_id: z.string().min(1),
       amount: z.number().positive().describe("Amount received."),
       date: dateParam.describe("Payment date, YYYY-MM-DD."),
-      payment_mode: z.string().optional().default("banktransfer").describe("cash|banktransfer|cheque|card|upi|other."),
+      payment_mode: z
+        .string()
+        .optional()
+        .default("banktransfer")
+        .describe("Payment mode as set up in the Zoho org, e.g. cash, banktransfer, check, creditcard, or a custom mode such as UPI."),
       invoice_id: z.string().optional().describe("Invoice the payment applies to."),
       reference_number: z.string().optional(),
       description: z.string().optional(),

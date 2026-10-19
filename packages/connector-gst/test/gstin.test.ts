@@ -43,7 +43,7 @@ describe("GSTIN validation", () => {
   });
 
   it("extracts entity type from the PAN character", () => {
-    expect(validateGstin("27AAPFU0939F1ZV").entityType).toBe("Partnership Firm");
+    expect(validateGstin("27AAPFU0939F1ZV").entityType).toBe("Partnership Firm / LLP");
     expect(validateGstin("27PAPFU0939F1ZV".slice(0, 2) + "AAPPU0939P" + "1ZV").entityType).toContain("Proprietorship");
   });
 });

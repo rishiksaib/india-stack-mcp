@@ -5,3 +5,4 @@ export * from "./audit/redact.js";
 export * from "./auth/vault.js";
 export * from "./mcp/defineTool.js";
 export * from "./mcp/server.js";
+export * from "./mcp/approval.js";

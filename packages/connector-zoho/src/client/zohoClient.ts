@@ -1,6 +1,7 @@
 import { ConnectorError, ErrorCode } from "@india-stack/core";
 import { TokenManager } from "./auth.js";
 import {
+  type CreateContactInput,
   type CreateInvoiceInput,
   type CreatePaymentInput,
   type ZohoAccount,
@@ -39,6 +40,23 @@ export class ZohoClient {
     path: string,
     opts: { organizationId?: string; query?: Record<string, string | number | undefined>; body?: unknown }
   ): Promise<{ data: T; raw: Record<string, unknown> }> {
+    try {
+      return await this.requestOnce<T>(method, path, opts);
+    } catch (err) {
+      // An access token can expire or be revoked between our expiry check and the call.
+      // requestOnce cleared the cached token, so one retry fetches a fresh one.
+      if (err instanceof ConnectorError && err.code === ErrorCode.AuthError && err.detail?.status === 401) {
+        return this.requestOnce<T>(method, path, opts);
+      }
+      throw err;
+    }
+  }
+
+  private async requestOnce<T>(
+    method: "GET" | "POST" | "PUT",
+    path: string,
+    opts: { organizationId?: string; query?: Record<string, string | number | undefined>; body?: unknown }
+  ): Promise<{ data: T; raw: Record<string, unknown> }> {
     const token = await this.tokens.getToken();
     const org = this.resolveOrganizationId(opts.organizationId);
     if (!org) {
@@ -67,7 +85,7 @@ export class ZohoClient {
 
     if (response.status === 401) {
       this.tokens.clear();
-      throw new ConnectorError(ErrorCode.AuthError, "Zoho rejected the access token", { detail: { status: 401, retryableHint: "token refreshed; retry the call once" }, retryable: true });
+      throw new ConnectorError(ErrorCode.AuthError, "Zoho rejected the access token even after a refresh. Check that the refresh token is still valid and has Books scopes.", { detail: { status: 401 } });
     }
     if (response.status === 429) {
       throw new ConnectorError(ErrorCode.RateLimited, "Zoho Books rate limit exceeded (100 req/min/org)", { retryable: true });
@@ -85,6 +103,15 @@ export class ZohoClient {
   }
 
   async listOrganizations(): Promise<ZohoOrganization[]> {
+    try {
+      return await this.listOrganizationsOnce();
+    } catch (err) {
+      if (err instanceof ConnectorError && err.code === ErrorCode.AuthError && err.detail?.status === 401) return this.listOrganizationsOnce();
+      throw err;
+    }
+  }
+
+  private async listOrganizationsOnce(): Promise<ZohoOrganization[]> {
     const token = await this.tokens.getToken();
     const base = this.config.apiBaseOverride ?? token.apiDomain;
     let response: Response;
@@ -97,8 +124,12 @@ export class ZohoClient {
       throw new ConnectorError(ErrorCode.UpstreamUnreachable, `Cannot reach Zoho Books API: ${(err as Error).message}`);
     }
     const json = (await response.json().catch(() => ({}))) as { organizations?: Array<Record<string, unknown>> };
+    if (response.status === 401) {
+      this.tokens.clear();
+      throw new ConnectorError(ErrorCode.AuthError, "Zoho rejected the access token even after a refresh.", { detail: { status: 401 } });
+    }
     if (!response.ok) {
-      throw new ConnectorError(ErrorCode.AuthError, `organizations listing failed: HTTP ${response.status}`);
+      throw new ConnectorError(ErrorCode.UpstreamRejected, `organizations listing failed: HTTP ${response.status} ${String((json as Record<string, unknown>).message ?? "")}`.trim(), { detail: { status: response.status } });
     }
     return (json.organizations ?? []).map(mapOrganization);
   }
@@ -122,18 +153,24 @@ export class ZohoClient {
     return mapContact((data.contact ?? {}) as Record<string, unknown>);
   }
 
-  buildCreateContactBody(input: { name: string; type?: "customer" | "vendor"; email?: string; phone?: string; gstin?: string; placeOfContact?: string }): Record<string, unknown> {
+  buildCreateContactBody(input: CreateContactInput): Record<string, unknown> {
     const body: Record<string, unknown> = { contact_name: input.name };
     if (input.type) body.contact_type = input.type;
     if (input.email) body.email = input.email;
     if (input.phone) body.phone = input.phone;
-    if (input.gstin) body.gstin = input.gstin;
-    if (input.placeOfContact) body.place_of_contact = input.placeOfContact;
+    // Zoho Books (India) calls the GSTIN "gst_no".
+    if (input.gstin) body.gst_no = input.gstin.trim().toUpperCase();
+    const treatment = input.gstTreatment ?? (input.gstin ? "business_gst" : undefined);
+    if (treatment) body.gst_treatment = treatment;
+    if (treatment === "business_gst" && !input.gstin) {
+      throw new ConnectorError(ErrorCode.ValidationError, "gst_treatment business_gst needs the contact's GSTIN");
+    }
+    if (input.placeOfContact) body.place_of_contact = input.placeOfContact.trim().toUpperCase();
     return body;
   }
 
   async createContact(
-    input: { name: string; type?: "customer" | "vendor"; email?: string; phone?: string; gstin?: string; placeOfContact?: string },
+    input: CreateContactInput,
     opts: { dryRun: boolean; organizationId?: string }
   ): Promise<{ preview: Record<string, unknown> } | ZohoContact> {
     const body = this.buildCreateContactBody(input);
@@ -170,9 +207,14 @@ export class ZohoClient {
         ...(li.name ? { name: li.name } : {}),
         ...(li.description ? { description: li.description } : {}),
         rate: li.rate,
-        quantity: li.quantity
+        quantity: li.quantity,
+        ...(li.taxId ? { tax_id: li.taxId } : {}),
+        ...(li.hsnOrSac ? { hsn_or_sac: li.hsnOrSac } : {})
       }))
     };
+    if (input.placeOfSupply) body.place_of_supply = input.placeOfSupply.trim().toUpperCase();
+    if (input.gstTreatment) body.gst_treatment = input.gstTreatment;
+    if (input.gstNo) body.gst_no = input.gstNo.trim().toUpperCase();
     if (input.invoiceNumber) body.invoice_number = input.invoiceNumber;
     if (input.referenceNumber) body.reference_number = input.referenceNumber;
     if (input.date) body.date = input.date;
@@ -290,7 +332,8 @@ function mapContact(raw: Record<string, unknown>): ZohoContact {
     contactType: (optStr(raw.contact_type) as ZohoContact["contactType"]) || undefined,
     email: optStr(raw.email),
     phone: optStr(raw.phone),
-    gstin: optStr(raw.gstin),
+    gstin: optStr(raw.gst_no) ?? optStr(raw.gstin),
+    gstTreatment: (optStr(raw.gst_treatment) as ZohoContact["gstTreatment"]) || undefined,
     placeOfContact: optStr(raw.place_of_contact),
     outstandingReceivableAmount: num(raw.outstanding_receivable_amount),
     outstandingPayableAmount: num(raw.outstanding_payable_amount)
@@ -321,10 +364,20 @@ function mapInvoiceDetail(raw: Record<string, unknown>): ZohoInvoice {
         rate: num(l.rate),
         quantity: num(l.quantity),
         itemTotal: num(l.item_total),
-        taxPercentage: num(l.tax_percentage)
+        taxPercentage: num(l.tax_percentage),
+        taxId: optStr(l.tax_id),
+        taxName: optStr(l.tax_name),
+        hsnOrSac: optStr(l.hsn_or_sac)
       }))
     : undefined;
-  return { ...mapInvoiceSummary(raw), referenceNumber: optStr(raw.reference_number), lineItems: lines };
+  return {
+    ...mapInvoiceSummary(raw),
+    referenceNumber: optStr(raw.reference_number),
+    placeOfSupply: optStr(raw.place_of_supply),
+    gstTreatment: optStr(raw.gst_treatment),
+    gstNo: optStr(raw.gst_no),
+    lineItems: lines
+  };
 }
 
 function hasMorePage(data: Record<string, unknown>): boolean {

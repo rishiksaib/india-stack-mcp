@@ -1,5 +1,5 @@
-
 import { createHash } from "node:crypto";
+import { ConnectorError, ErrorCode } from "@india-stack/core";
 
 export interface IrpResult {
   irn: string;
@@ -13,6 +13,7 @@ export interface IrpClient {
   generateIrn(payloadJson: string): Promise<IrpResult>;
 }
 
+/** Test double. Its IRNs start with "MOCK-" and are not legal documents. */
 export class MockIrpClient implements IrpClient {
   private counter = 1000;
 
@@ -21,7 +22,7 @@ export class MockIrpClient implements IrpClient {
     const hash = createHash("sha256").update(payloadJson).digest("hex").slice(0, 40).toUpperCase();
     return {
       irn: `MOCK-${hash}-${this.counter}`,
-      ackNo: String(Date.now()),
+      ackNo: `MOCK-${Date.now()}`,
       ackDate: new Date().toISOString(),
       signedQrCode: undefined,
       irp: "mock"
@@ -29,7 +30,15 @@ export class MockIrpClient implements IrpClient {
   }
 }
 
+/**
+ * No licensed IRP/GSP integration ships with this package. Live generation is refused unless
+ * INDIA_STACK_IRP=mock is set explicitly (for demos and tests), so an agent can never present
+ * a synthetic IRN as a real one.
+ */
 export function irpFromEnv(): IrpClient {
-  return new MockIrpClient();
+  if ((process.env.INDIA_STACK_IRP ?? "").toLowerCase() === "mock") return new MockIrpClient();
+  throw new ConnectorError(
+    ErrorCode.ValidationError,
+    "No IRP/GSP client is configured, so a real IRN cannot be generated. Use gst_einvoice_build (or dry-run) to produce the schema v1.1 JSON and upload it through the e-invoice portal or your GSP."
+  );
 }
-

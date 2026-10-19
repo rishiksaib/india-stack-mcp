@@ -41,6 +41,10 @@ export interface ZohoOrganization {
 
 export type ContactType = "customer" | "vendor";
 
+/** Zoho Books (India) GST treatment values. */
+export type GstTreatment = "business_gst" | "business_none" | "overseas" | "consumer";
+export const GST_TREATMENTS: GstTreatment[] = ["business_gst", "business_none", "overseas", "consumer"];
+
 export interface ZohoContact {
   contactId?: string;
   contactName: string;
@@ -48,9 +52,23 @@ export interface ZohoContact {
   email?: string;
   phone?: string;
   gstin?: string;
+  gstTreatment?: GstTreatment;
   placeOfContact?: string;
   outstandingReceivableAmount?: number;
   outstandingPayableAmount?: number;
+}
+
+export interface CreateContactInput {
+  name: string;
+  type?: ContactType;
+  email?: string;
+  phone?: string;
+  /** Sent to Zoho as gst_no. */
+  gstin?: string;
+  /** Defaults to business_gst when a GSTIN is given. */
+  gstTreatment?: GstTreatment;
+  /** 2-letter state code, e.g. "MH". */
+  placeOfContact?: string;
 }
 
 export interface InvoiceLineInput {
@@ -59,6 +77,9 @@ export interface InvoiceLineInput {
   description?: string;
   rate: number;
   quantity: number;
+  /** Zoho tax_id of the GST rate/group to apply (from the org's taxes). */
+  taxId?: string;
+  hsnOrSac?: string;
 }
 
 export interface CreateInvoiceInput {
@@ -68,6 +89,10 @@ export interface CreateInvoiceInput {
   date?: string;
   dueDate?: string;
   notes?: string;
+  /** India: 2-letter state code of the place of supply (e.g. "MH", "TS"). */
+  placeOfSupply?: string;
+  gstTreatment?: GstTreatment;
+  gstNo?: string;
   lineItems: InvoiceLineInput[];
 }
 
@@ -80,6 +105,9 @@ export interface InvoiceLine {
   quantity?: number;
   itemTotal?: number;
   taxPercentage?: number;
+  taxId?: string;
+  taxName?: string;
+  hsnOrSac?: string;
 }
 
 export interface ZohoInvoice {
@@ -93,6 +121,9 @@ export interface ZohoInvoice {
   total?: number;
   balance?: number;
   referenceNumber?: string;
+  placeOfSupply?: string;
+  gstTreatment?: string;
+  gstNo?: string;
   lineItems?: InvoiceLine[];
 }
 

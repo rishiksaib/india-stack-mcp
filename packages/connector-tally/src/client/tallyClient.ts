@@ -6,7 +6,18 @@ import {
   type CollectionSpec
 } from "./xml/envelope.js";
 import { ledgerImportMessage, voucherDeleteMessage, voucherImportMessage } from "./xml/importData.js";
-import { asArray, extractDayBook, extractImportResult, extractRecords, parseBalance, parseXml } from "./xml/parse.js";
+import {
+  asArray,
+  extractDayBook,
+  extractImportResult,
+  extractRecords,
+  findElements,
+  isRecord,
+  parseBalance,
+  parseXml,
+  textOf,
+  type RawImportResult
+} from "./xml/parse.js";
 import type {
   CreateLedgerInput,
   CreateVoucherInput,
@@ -15,12 +26,13 @@ import type {
   ImportResult,
   LedgerSummary,
   TallyClientConfig,
+  TallyClientLike,
   TallyCompany
 } from "./types.js";
 
 const DEFAULT_BASE_URL = "http://localhost:9000";
 
-export class TallyClient {
+export class TallyClient implements TallyClientLike {
   private readonly baseUrl: string;
   private readonly defaultCompany?: string;
   private readonly timeoutMs: number;
@@ -45,9 +57,15 @@ export class TallyClient {
         signal: AbortSignal.timeout(this.timeoutMs)
       });
     } catch (err) {
-      throw new ConnectorError(ErrorCode.UpstreamUnreachable, `Cannot reach Tally at ${this.baseUrl}: ${(err as Error).message}`, {
-        detail: { baseUrl: this.baseUrl }
-      });
+      const e = err as Error & { cause?: { code?: string } };
+      const timedOut = e.name === "TimeoutError" || /timeout|aborted/i.test(e.message);
+      throw new ConnectorError(
+        ErrorCode.UpstreamUnreachable,
+        timedOut
+          ? `Tally at ${this.baseUrl} did not answer within ${this.timeoutMs} ms (timeout)`
+          : `Cannot reach Tally at ${this.baseUrl}: ${e.cause?.code ?? e.message}. Is TallyPrime open with its XML server enabled?`,
+        { detail: { baseUrl: this.baseUrl } }
+      );
     }
     if (!response.ok) {
       throw new ConnectorError(ErrorCode.UpstreamRejected, `Tally responded HTTP ${response.status}`, { detail: { status: response.status } });
@@ -59,7 +77,7 @@ export class TallyClient {
       });
     }
     if (text.trim() === "") {
-      throw new ConnectorError(ErrorCode.UpstreamRejected, "Tally returned an empty response");
+      throw new ConnectorError(ErrorCode.UpstreamRejected, "Tally returned an empty response (usually a company that is not loaded, or a security setting blocking the request)");
     }
     return text;
   }
@@ -67,12 +85,10 @@ export class TallyClient {
   async listCompanies(): Promise<TallyCompany[]> {
     const spec: CollectionSpec = { id: "IndiaStackCompanies", type: "Company", fetchFields: ["NAME", "GUID", "STARTINGFROM"] };
     const xml = await this.post(collectionEnvelope(spec));
-    const records = extractRecords(parseXml(xml), spec.id);
-    return records.map((r) => ({
-      name: r["NAME"] ?? "",
-      guid: r["GUID"],
-      startingFrom: r["STARTINGFROM"]
-    }));
+    const records = extractRecords(parseXml(xml), spec.id, "Company");
+    return records
+      .map((r) => ({ name: r["NAME"] ?? "", guid: r["GUID"], startingFrom: r["STARTINGFROM"] }))
+      .filter((c) => c.name !== "");
   }
 
   async getCompany(name: string): Promise<TallyCompany> {
@@ -88,17 +104,20 @@ export class TallyClient {
     const spec: CollectionSpec = {
       id: "IndiaStackLedgers",
       type: "Ledger",
-      fetchFields: ["NAME", "PARENT", "OPENINGBALANCE", "CLOSINGBALANCE"],
+      fetchFields: ["NAME", "PARENT", "OPENINGBALANCE", "CLOSINGBALANCE", "PARTYGSTIN", "LEDGSTREGDETAILS"],
       company: this.resolveCompany(opts.company)
     };
-    const xml = await this.post(collectionEnvelope(spec));
-    const records = extractRecords(parseXml(xml), spec.id);
-    let ledgers: LedgerSummary[] = records.map((r) => ({
+    const parsed = parseXml(await this.post(collectionEnvelope(spec)));
+    const raw = findElements(parsed, (tag) => tag.toUpperCase() === "LEDGER");
+    const flat = extractRecords(parsed, spec.id, "Ledger");
+    let ledgers: LedgerSummary[] = flat.map((r, i) => ({
       name: r["NAME"] ?? "",
       parent: r["PARENT"],
       openingBalance: parseBalance(r["OPENINGBALANCE"]),
-      closingBalance: parseBalance(r["CLOSINGBALANCE"])
+      closingBalance: parseBalance(r["CLOSINGBALANCE"]),
+      gstin: r["PARTYGSTIN"] || nestedGstin(raw[i])
     }));
+    ledgers = ledgers.filter((l) => l.name !== "");
     if (opts.parent) {
       const p = opts.parent.toLowerCase();
       ledgers = ledgers.filter((l) => l.parent?.toLowerCase().includes(p));
@@ -113,7 +132,10 @@ export class TallyClient {
   async getLedger(name: string, company?: string): Promise<LedgerSummary> {
     const ledgers = await this.searchLedgers({ company });
     const match = ledgers.find((l) => l.name.toLowerCase() === name.toLowerCase());
-    if (!match) throw new ConnectorError(ErrorCode.NotFound, `Ledger "${name}" not found`);
+    if (!match) {
+      const close = ledgers.filter((l) => l.name.toLowerCase().includes(name.toLowerCase().slice(0, 4))).map((l) => l.name).slice(0, 10);
+      throw new ConnectorError(ErrorCode.NotFound, `Ledger "${name}" not found`, { detail: { similar: close } });
+    }
     return match;
   }
 
@@ -124,32 +146,34 @@ export class TallyClient {
   async createLedger(input: CreateLedgerInput, opts: { dryRun: boolean; company?: string }): Promise<{ preview: string } | ImportResult> {
     const body = this.buildCreateLedgerRequest(input, opts.company);
     if (opts.dryRun) return { preview: body };
-    const result = assertImported(extractImportResult(parseXml(await this.post(body))));
-    return result;
+    return assertImported(extractImportResult(parseXml(await this.post(body))));
   }
 
   buildCreateVoucherRequest(input: CreateVoucherInput, company?: string): string {
+    validateBalanced(input);
     return importEnvelope("Vouchers", voucherImportMessage(input), this.resolveCompany(company));
   }
 
   async createVoucher(input: CreateVoucherInput, opts: { dryRun: boolean; company?: string }): Promise<{ preview: string } | (ImportResult & { voucherNumber?: string })> {
-    validateBalanced(input);
     const body = this.buildCreateVoucherRequest(input, opts.company);
     if (opts.dryRun) return { preview: body };
-    const result = assertImported(extractImportResult(parseXml(await this.post(body))));
-    return { ...result, voucherNumber: extractCreatedVoucherNumber(result) };
+    return assertImported(extractImportResult(parseXml(await this.post(body))));
   }
 
   buildDeleteVoucherRequest(input: DeleteVoucherInput, company?: string): string {
-    const message = voucherDeleteMessage({ remoteId: input.remoteId, voucherNumber: input.voucherNumber, voucherType: input.voucherType, date: input.date });
+    let message: string;
+    try {
+      message = voucherDeleteMessage(input);
+    } catch (err) {
+      throw new ConnectorError(ErrorCode.ValidationError, (err as Error).message);
+    }
     return importEnvelope("Vouchers", message, this.resolveCompany(company));
   }
 
   async deleteVoucher(input: DeleteVoucherInput, opts: { dryRun: boolean; company?: string }): Promise<{ preview: string } | ImportResult> {
     const body = this.buildDeleteVoucherRequest(input, opts.company);
     if (opts.dryRun) return { preview: body };
-    const result = assertImported(extractImportResult(parseXml(await this.post(body))));
-    return result;
+    return assertImported(extractImportResult(parseXml(await this.post(body))));
   }
 
   async ledgerBalances(opts: { parent?: string; company?: string }): Promise<LedgerSummary[]> {
@@ -160,27 +184,7 @@ export class TallyClient {
     const xml = await this.post(
       reportEnvelope({ reportName: "Day Book", fromDate: opts.from, toDate: opts.to, company: this.resolveCompany(opts.company) })
     );
-    const rows = extractDayBook(parseXml(xml));
-    return rows.map((row) => {
-      const lines = asArray(row["ALLLEDGERENTRIES.LIST"]).map((raw) => {
-        const entry = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-        return {
-          ledgerName: str(entry["LEDGERNAME"]),
-          amount: parseBalance(entry["AMOUNT"])
-        };
-      });
-      const amounts = lines.map((l) => l.amount ?? 0).filter((n) => n !== 0);
-      const debit = amounts.filter((n) => n > 0).reduce((a, b) => a + b, 0);
-      return {
-        date: str(row["DATE"]),
-        voucherType: str(row["VOUCHERTYPENAME"]),
-        voucherNumber: str(row["VOUCHERNUMBER"]),
-        narration: str(row["NARRATION"]) || undefined,
-        partyLedger: str(row["PARTYLEDGERNAME"]) || undefined,
-        amount: debit > 0 ? Math.round(debit * 100) / 100 : undefined,
-        lines
-      };
-    });
+    return extractDayBook(parseXml(xml)).map(toDayBookEntry);
   }
 
   async findVouchers(opts: { from: string; to: string; voucherType?: string; voucherNumber?: string; company?: string }): Promise<DayBookEntry[]> {
@@ -199,18 +203,55 @@ export class TallyClient {
   async listVoucherTypes(company?: string): Promise<string[]> {
     const spec: CollectionSpec = {
       id: "IndiaStackVchTypes",
-      type: "Vouchertype",
-      fetchFields: ["NAME"],
+      type: "VoucherType",
+      fetchFields: ["NAME", "PARENT"],
       company: this.resolveCompany(company)
     };
     const xml = await this.post(collectionEnvelope(spec));
-    const records = extractRecords(parseXml(xml), spec.id);
-    return records.map((r) => r["NAME"] ?? "").filter(Boolean);
+    return extractRecords(parseXml(xml), spec.id, "VoucherType")
+      .map((r) => r["NAME"] ?? "")
+      .filter(Boolean);
   }
 }
 
+function toDayBookEntry(row: Record<string, unknown>): DayBookEntry {
+  const rawLines = [...asArray(row["ALLLEDGERENTRIES.LIST"]), ...asArray(row["LEDGERENTRIES.LIST"])].filter(isRecord);
+  const lines = rawLines.map((entry) => ({
+    ledgerName: textOf(entry["LEDGERNAME"]) ?? "",
+    amount: parseBalance(entry["AMOUNT"])
+  }));
+  const debit = lines.map((l) => l.amount ?? 0).filter((n) => n > 0).reduce((a, b) => a + b, 0);
+  const attr = (name: string): string | undefined => {
+    const v = row[`@_${name}`];
+    return typeof v === "string" && v !== "" ? v : undefined;
+  };
+  const text = (name: string): string | undefined => {
+    const v = textOf(row[name]);
+    return v === undefined || v === "" ? undefined : v;
+  };
+  return {
+    date: text("DATE"),
+    voucherType: text("VOUCHERTYPENAME") ?? attr("VCHTYPE"),
+    voucherNumber: text("VOUCHERNUMBER"),
+    narration: text("NARRATION"),
+    partyLedger: text("PARTYLEDGERNAME"),
+    partyGstin: text("PARTYGSTIN"),
+    reference: text("REFERENCE"),
+    masterId: text("MASTERID"),
+    remoteId: attr("REMOTEID") ?? text("GUID"),
+    amount: debit > 0 ? Math.round(debit * 100) / 100 : undefined,
+    lines
+  };
+}
+
+function nestedGstin(raw: Record<string, unknown> | undefined): string | undefined {
+  if (!raw) return undefined;
+  const hit = findElements(raw, (tag) => tag.toUpperCase() === "GSTIN")[0];
+  return hit ? textOf(hit) : undefined;
+}
+
 function validateBalanced(input: CreateVoucherInput): void {
-  if (!input.lines.length) throw new ConnectorError(ErrorCode.ValidationError, "voucher needs at least one line");
+  if (input.lines.length < 2) throw new ConnectorError(ErrorCode.ValidationError, "a voucher needs at least two lines (one debit, one credit)");
   const sum = Math.round(input.lines.reduce((acc, l) => acc + l.amount, 0) * 100) / 100;
   if (Math.abs(sum) > 0.004) {
     throw new ConnectorError(ErrorCode.ValidationError, `voucher is not balanced: debits minus credits = ${sum.toFixed(2)} (must be 0)`, {
@@ -220,13 +261,24 @@ function validateBalanced(input: CreateVoucherInput): void {
   for (const line of input.lines) {
     if (line.amount === 0) throw new ConnectorError(ErrorCode.ValidationError, `line "${line.ledgerName}" has amount 0`);
   }
+  if (!input.lines.some((l) => l.amount > 0) || !input.lines.some((l) => l.amount < 0)) {
+    throw new ConnectorError(ErrorCode.ValidationError, "a voucher needs at least one debit (positive) and one credit (negative) line");
+  }
 }
 
-function assertImported(raw: ReturnType<typeof extractImportResult>): ImportResult {
-  const errors = [...raw.lineErrors, ...raw.errorsText];
-  if (raw.exceptions > 0 || errors.length > 0 || (raw.created + raw.altered + raw.deleted + raw.voucherDeleted === 0)) {
-    throw new ConnectorError(ErrorCode.UpstreamRejected, errors[0] ?? "Tally did not confirm the change", {
-      detail: { created: raw.created, altered: raw.altered, deleted: raw.deleted, exceptions: raw.exceptions, lineErrors: errors.slice(0, 5) }
+function assertImported(raw: RawImportResult): ImportResult {
+  const changed = raw.created + raw.altered + raw.deleted + raw.voucherDeleted + raw.cancelled + raw.combined;
+  if (raw.exceptions > 0 || raw.errors > 0 || raw.lineErrors.length > 0 || changed === 0) {
+    throw new ConnectorError(ErrorCode.UpstreamRejected, raw.lineErrors[0] ?? "Tally did not confirm the change (nothing was created, altered or deleted)", {
+      detail: {
+        created: raw.created,
+        altered: raw.altered,
+        deleted: raw.deleted,
+        errors: raw.errors,
+        exceptions: raw.exceptions,
+        ignored: raw.ignored,
+        lineErrors: raw.lineErrors.slice(0, 5)
+      }
     });
   }
   return {
@@ -235,14 +287,7 @@ function assertImported(raw: ReturnType<typeof extractImportResult>): ImportResu
     deleted: raw.deleted,
     voucherDeleted: raw.voucherDeleted,
     exceptions: raw.exceptions,
-    lineErrors: []
+    lineErrors: [],
+    masterId: raw.lastVchId ?? raw.lastMasterId
   };
-}
-
-function extractCreatedVoucherNumber(_result: ImportResult): string | undefined {
-  return undefined;
-}
-
-function str(value: unknown): string {
-  return value === undefined || value === null ? "" : String(value);
 }

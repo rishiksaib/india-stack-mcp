@@ -226,8 +226,8 @@ describe("eval scenarios", () => {
       kind: "Payment",
       date: "2024-04-07",
       lines: [
-        { ledgerName: "Rent", amount: -25000 },
-        { ledgerName: "HDFC Bank", amount: 25000 }
+        { ledgerName: "Rent", amount: 25000 },
+        { ledgerName: "HDFC Bank", amount: -25000 }
       ]
     });
     expect(xml).toContain('<VOUCHER VCHTYPE="Payment" ACTION="Create"');

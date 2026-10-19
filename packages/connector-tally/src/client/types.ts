@@ -10,17 +10,20 @@ export interface TallyCompany {
   startingFrom?: string;
 }
 
+/** Balances use this connector's convention: positive = debit, negative = credit. */
 export interface LedgerSummary {
   name: string;
   parent?: string;
   openingBalance?: number;
   closingBalance?: number;
+  gstin?: string;
 }
 
 export interface CreateLedgerInput {
   name: string;
   parent: string;
-  openingBalance?: string;
+  /** Positive = debit (e.g. bank, debtor), negative = credit (e.g. capital, creditor). */
+  openingBalance?: number;
 }
 
 export type VoucherKind =
@@ -29,9 +32,11 @@ export type VoucherKind =
   | "Payment"
   | "Receipt"
   | "Journal"
+  | "Contra"
   | "Credit Note"
   | "Debit Note";
 
+/** Positive amount = debit, negative = credit. */
 export interface VoucherLine {
   ledgerName: string;
   amount: number;
@@ -47,10 +52,17 @@ export interface CreateVoucherInput {
 }
 
 export interface DeleteVoucherInput {
+  masterId?: string;
   remoteId?: string;
   voucherNumber?: string;
   voucherType?: string;
   date?: string;
+}
+
+export interface DayBookLine {
+  ledgerName?: string;
+  /** Positive = debit, negative = credit. */
+  amount?: number;
 }
 
 export interface DayBookEntry {
@@ -59,8 +71,14 @@ export interface DayBookEntry {
   voucherNumber?: string;
   narration?: string;
   partyLedger?: string;
+  partyGstin?: string;
+  reference?: string;
+  /** Tally Master ID: use with tally_delete_voucher. */
+  masterId?: string;
+  remoteId?: string;
+  /** Total of the debit side. */
   amount?: number;
-  lines?: Array<{ ledgerName?: string; amount?: number }>;
+  lines?: DayBookLine[];
 }
 
 export interface ImportResult {
@@ -70,14 +88,16 @@ export interface ImportResult {
   voucherDeleted: number;
   exceptions: number;
   lineErrors: string[];
+  /** Master ID of the last voucher Tally created or changed (LASTVCHID). */
+  masterId?: string;
 }
 
 export interface TallyClientLike {
   listCompanies(): Promise<TallyCompany[]>;
   getCompany(name: string): Promise<TallyCompany>;
-  searchLedgers(opts: { query?: string; parent?: string }): Promise<LedgerSummary[]>;
-  getLedger(name: string): Promise<LedgerSummary>;
-  createLedger(input: CreateLedgerInput, opts: { dryRun: boolean }): Promise<{ preview: string } | ImportResult>;
+  searchLedgers(opts: { query?: string; parent?: string; company?: string }): Promise<LedgerSummary[]>;
+  getLedger(name: string, company?: string): Promise<LedgerSummary>;
+  createLedger(input: CreateLedgerInput, opts: { dryRun: boolean; company?: string }): Promise<{ preview: string } | ImportResult>;
   createVoucher(input: CreateVoucherInput, opts: { dryRun: boolean; company?: string }): Promise<
     | { preview: string }
     | (ImportResult & { voucherNumber?: string })
@@ -85,5 +105,6 @@ export interface TallyClientLike {
   deleteVoucher(input: DeleteVoucherInput, opts: { dryRun: boolean; company?: string }): Promise<{ preview: string } | ImportResult>;
   ledgerBalances(opts: { parent?: string; company?: string }): Promise<LedgerSummary[]>;
   dayBook(opts: { from: string; to: string; company?: string }): Promise<DayBookEntry[]>;
-  listVoucherTypes(opts: { company?: string }): Promise<string[]>;
+  findVouchers(opts: { from: string; to: string; voucherType?: string; voucherNumber?: string; company?: string }): Promise<DayBookEntry[]>;
+  listVoucherTypes(company?: string): Promise<string[]>;
 }

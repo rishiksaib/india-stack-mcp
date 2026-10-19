@@ -15,8 +15,12 @@ git push -u origin main
 
 ## 2. npm (scoped public packages)
 
+Publish core first; the connectors depend on `@india-stack/core@^0.2.0`. You need to own the
+`@india-stack` scope on npm (create the org once at npmjs.com), or rename the scope.
+
 ```bash
 npm login
+npm run build && npm test
 npm publish --access public -w @india-stack/core
 npm publish --access public -w @india-stack/connector-tally
 npm publish --access public -w @india-stack/connector-zoho
@@ -45,8 +49,8 @@ buyers search by system name, not by "India Stack".
 
 ## 5. Buyer-facing artifacts (the acquisition funnel)
 
-- One-page PDF: architecture diagram + security model (dry-run defaults, hash-chained audit log, idempotent writes) + eval results.
-- The `evals/` suite doubles as your certification story: "every connector ships with golden-task benchmarks."
+- One-page PDF: architecture diagram + security model (dry-run defaults, human approval for deletes, hash-chained audit log, idempotent writes) + test results.
+- The `evals/` suite runs every tool through a real MCP client; quote its pass count.
 - Outbound shortlist: Sarvam (Indus compatibility - they hand-build Finacle/SAP skills), Composio and Nango (catalog gaps), ClearTax/Zoho (strategic), global labs seeking an India wedge.
 
 ## 6. Hygiene before any buyer conversation

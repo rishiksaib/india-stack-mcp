@@ -1,3 +1,8 @@
+/**
+ * Generic RSA + AES-256-CBC + HMAC envelope helpers. This is NOT the NIC IRP wire format
+ * (the IRP generate call takes {"Data": <payload encrypted with the session key from the auth
+ * call>}); it is kept as a library utility only and is not used by any tool.
+ */
 import { createCipheriv, createDecipheriv, createHash, createHmac, privateDecrypt, publicEncrypt, randomBytes } from "node:crypto";
 
 export interface NicEnvelope {
