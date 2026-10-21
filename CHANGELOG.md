@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.2.1 (2026-10-21)
+
+Verified end to end on a real TallyPrime 7.2 (Educational mode): 30/30 live checks through
+the MCP server, and the posted vouchers checked on Tally's own Day Book and voucher screens.
+
+### Fixed (found by the live run)
+
+- `tally_day_book`, `tally_find_vouchers` and `tally_purchase_register` returned no vouchers:
+  TallyPrime 7.2 answers the "Day Book" report export with an empty DATA block. Vouchers are
+  now read as a `Voucher` collection, filtered by date, with deleted and cancelled vouchers
+  dropped.
+- Parsed the `CMPINFO` count block as records, which produced empty vouchers.
+- `tally_trial_balance` counted the current period twice through Profit & Loss A/c's closing
+  balance; it now uses that ledger's opening balance, as Tally's trial balance does.
+- Group names with control characters (`\u0004 Primary`) are cleaned.
+
+### Confirmed live (no change needed)
+
+- Debit = `ISDEEMEDPOSITIVE Yes` with a negative `AMOUNT`: Tally's Day Book shows the
+  connector's purchase with Purchase Account and Input IGST as debits and the supplier as credit.
+- Import responses: `ERRORS 0` on success; `EXCEPTIONS 1` plus `LINEERROR` on a bad ledger.
+- `LASTVCHID` is the new voucher's Master ID; delete by Master ID works.
+
+### Added
+
+- `evals/live/tally-live.mjs`: re-runnable live test against your own TallyPrime.
+- Recorded TallyPrime 7.2 responses as test fixtures.
+
 ## 0.2.0 (2026-10-19)
 
 A correctness release. Several 0.1.0 behaviours could post wrong or duplicate entries;

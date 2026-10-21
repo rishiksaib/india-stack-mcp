@@ -1,6 +1,6 @@
 {
   "name": "@india-stack/connector-gst",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP connector for Indian GST ops: GSTIN validation, e-invoice (IRN) payloads with NIC-style encryption, GSTR-2B reconciliation.",
   "keywords": [
     "mcp",
@@ -44,7 +44,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@india-stack/core": "^0.2.0",
+    "@india-stack/core": "^0.2.1",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "zod": "^3.24.1"
   },

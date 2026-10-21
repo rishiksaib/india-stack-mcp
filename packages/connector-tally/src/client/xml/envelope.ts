@@ -33,12 +33,17 @@ export interface CollectionSpec {
   type: string;
   fetchFields: string[];
   company?: string;
+  /** Period for voucher collections, YYYY-MM-DD. */
+  fromDate?: string;
+  toDate?: string;
 }
 
 export function collectionEnvelope(spec: CollectionSpec): string {
   const staticVars = [
     "<SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>",
-    spec.company ? `<SVCURRENTCOMPANY>${xmlEscape(spec.company)}</SVCURRENTCOMPANY>` : ""
+    spec.company ? `<SVCURRENTCOMPANY>${xmlEscape(spec.company)}</SVCURRENTCOMPANY>` : "",
+    spec.fromDate ? `<SVFROMDATE>${compactDate(spec.fromDate)}</SVFROMDATE>` : "",
+    spec.toDate ? `<SVTODATE>${compactDate(spec.toDate)}</SVTODATE>` : ""
   ].join("");
   return [
     "<ENVELOPE>",

@@ -46,8 +46,12 @@ export function makeReportTools(client: TallyClient): RegisteredTool[] {
       for (const l of ledgers) {
         const g = l.parent ?? "(no group)";
         groups[g] ??= { totalDebit: 0, totalCredit: 0, ledgers: [] };
-        groups[g]!.ledgers.push({ name: l.name, closingBalance: l.closingBalance });
-        const bal = l.closingBalance ?? 0;
+        // Tally's Profit & Loss A/c closing balance already includes the current period's result,
+        // which the income and expense ledgers also carry. Its trial balance shows only the
+        // opening balance, so do the same to avoid counting the period twice.
+        const isPnl = l.reservedName === "Profit & Loss A/c" || l.name === "Profit & Loss A/c";
+        const bal = (isPnl ? l.openingBalance : l.closingBalance) ?? 0;
+        groups[g]!.ledgers.push({ name: l.name, closingBalance: isPnl ? l.openingBalance : l.closingBalance });
         if (bal >= 0) {
           groups[g]!.totalDebit += bal;
           totalDebit += bal;

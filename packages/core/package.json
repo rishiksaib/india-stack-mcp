@@ -1,6 +1,6 @@
 {
   "name": "@india-stack/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Shared primitives for India Stack MCP connectors: tool definition, audit log, credential vault, errors, idempotency.",
   "keywords": [
     "mcp",
