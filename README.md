@@ -13,7 +13,7 @@ tamper-evident audit trail.
 
 | Connector | Scope | State |
 | --- | --- | --- |
-| `tally-mcp` | Companies, ledgers, vouchers (8 types), day book, trial balance, purchase register | **beta**: tested against Tally's documented XML formats; verify on your TallyPrime before relying on writes |
+| `tally-mcp` | Companies, ledgers, vouchers (8 types), day book, trial balance, purchase register | **beta**: verified end to end on TallyPrime 7.2 (30/30 live checks: ledgers, payment, purchase, read-back, trial balance, purchase register, delete by Master ID) |
 | `zoho-mcp` | Organizations, contacts, invoices (with GST fields), items, payments, chart of accounts | **beta** |
 | `gst-mcp` | GSTIN validation, e-invoice JSON (schema v1.1), GSTR-2B reconciliation | **beta**; no IRP/GSP integration (see below) |
 
@@ -144,8 +144,8 @@ machine set `HOST` and `INDIA_STACK_HTTP_TOKEN` (16+ characters); every request 
 ## Development
 
 ```bash
-npm run test        # unit, documented-format fixtures, and MCP protocol-level tests
-TALLY_LIVE=1 npm run test:live   # hits a real local TallyPrime
+npm run test        # unit, recorded TallyPrime 7.2 responses, and MCP protocol-level tests
+TALLY_COMPANY="Test Co" LIVE_DATE=2026-04-02 node evals/live/tally-live.mjs   # end-to-end on a real TallyPrime (use an empty test company)
 npm run lint && npm run typecheck && npm test
 ```
 

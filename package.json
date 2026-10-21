@@ -1,6 +1,6 @@
 {
   "name": "india-stack-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Production-grade MCP servers for Indian enterprise systems: Tally, Zoho Books, GST. Agents that can do books and file taxes in India.",
   "license": "Apache-2.0",

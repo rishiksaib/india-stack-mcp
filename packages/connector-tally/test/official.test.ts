@@ -62,7 +62,7 @@ beforeAll(async () => {
       if (body.includes("Import Data")) return res.end(importReply);
       if (body.includes("<TYPE>Company</TYPE>")) return res.end(fixture("official-company-collection.xml"));
       if (body.includes("<TYPE>Ledger</TYPE>")) return res.end(fixture("official-ledger-collection.xml"));
-      if (body.includes("<ID>Day Book</ID>")) return res.end(fixture("official-daybook.xml"));
+      if (body.includes("<TYPE>Voucher</TYPE>")) return res.end(fixture("official-daybook.xml"));
       res.end("<ENVELOPE></ENVELOPE>");
     });
   });

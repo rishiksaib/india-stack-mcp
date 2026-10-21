@@ -11,3 +11,4 @@ coverage/
 *.idempotency.json
 *.idempotency.json.tmp
 audit/
+evals/live/.live-audit.jsonl*

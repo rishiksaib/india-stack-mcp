@@ -8,7 +8,7 @@ import { makeReportTools } from "./tools/reports.js";
 import { makeVoucherTools } from "./tools/vouchers.js";
 
 export const SERVER_NAME = "india-stack-tally";
-export const SERVER_VERSION = "0.2.0";
+export const SERVER_VERSION = "0.2.1";
 
 export function createTallyServer(config: TallyClientConfig = {}, context?: ToolContext): McpServer {
   const client = new TallyClient(config);

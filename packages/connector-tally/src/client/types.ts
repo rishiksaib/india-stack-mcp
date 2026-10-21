@@ -17,6 +17,8 @@ export interface LedgerSummary {
   openingBalance?: number;
   closingBalance?: number;
   gstin?: string;
+  /** Tally's reserved name for built-in ledgers, e.g. "Profit & Loss A/c". */
+  reservedName?: string;
 }
 
 export interface CreateLedgerInput {

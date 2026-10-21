@@ -9,7 +9,7 @@ import { makeItemTools } from "./tools/items.js";
 import { makeOrganizationTools } from "./tools/organizations.js";
 
 export const SERVER_NAME = "india-stack-zoho";
-export const SERVER_VERSION = "0.2.0";
+export const SERVER_VERSION = "0.2.1";
 
 export function createZohoServer(config: ZohoClientConfig = {}, context?: ToolContext): McpServer {
   const client = new ZohoClient(config);

@@ -1,10 +1,5 @@
 import { ErrorCode, ConnectorError } from "@india-stack/core";
-import {
-  collectionEnvelope,
-  importEnvelope,
-  reportEnvelope,
-  type CollectionSpec
-} from "./xml/envelope.js";
+import { collectionEnvelope, compactDate, importEnvelope, type CollectionSpec } from "./xml/envelope.js";
 import { ledgerImportMessage, voucherDeleteMessage, voucherImportMessage } from "./xml/importData.js";
 import {
   asArray,
@@ -112,7 +107,8 @@ export class TallyClient implements TallyClientLike {
     const flat = extractRecords(parsed, spec.id, "Ledger");
     let ledgers: LedgerSummary[] = flat.map((r, i) => ({
       name: r["NAME"] ?? "",
-      parent: r["PARENT"],
+      parent: cleanText(r["PARENT"]),
+      reservedName: r["RESERVEDNAME"] || undefined,
       openingBalance: parseBalance(r["OPENINGBALANCE"]),
       closingBalance: parseBalance(r["CLOSINGBALANCE"]),
       gstin: r["PARTYGSTIN"] || nestedGstin(raw[i])
@@ -180,11 +176,43 @@ export class TallyClient implements TallyClientLike {
     return this.searchLedgers(opts);
   }
 
+  /**
+   * Vouchers in a period. Read as a Voucher collection: on TallyPrime 7.2 the "Day Book"
+   * report export returns an empty DATA block, while the collection returns each voucher with
+   * MASTERID, REMOTEID, REFERENCE and its ledger entries. Dates are also filtered here so the
+   * result never depends on how a release scopes the collection to SVFROMDATE/SVTODATE.
+   */
   async dayBook(opts: { from: string; to: string; company?: string }): Promise<DayBookEntry[]> {
-    const xml = await this.post(
-      reportEnvelope({ reportName: "Day Book", fromDate: opts.from, toDate: opts.to, company: this.resolveCompany(opts.company) })
-    );
-    return extractDayBook(parseXml(xml)).map(toDayBookEntry);
+    const spec: CollectionSpec = {
+      id: "IndiaStackVouchers",
+      type: "Voucher",
+      fetchFields: [
+        "DATE",
+        "VOUCHERTYPENAME",
+        "VOUCHERNUMBER",
+        "PARTYLEDGERNAME",
+        "PARTYGSTIN",
+        "NARRATION",
+        "REFERENCE",
+        "MASTERID",
+        "GUID",
+        "ISCANCELLED",
+        "ISDELETED",
+        "ALLLEDGERENTRIES.LIST",
+        "LEDGERENTRIES.LIST"
+      ],
+      company: this.resolveCompany(opts.company),
+      fromDate: opts.from,
+      toDate: opts.to
+    };
+    const xml = await this.post(collectionEnvelope(spec));
+    const from = compactDate(opts.from);
+    const to = compactDate(opts.to);
+    return extractDayBook(parseXml(xml))
+      .filter((row) => !/^yes$/i.test(textOf(row["ISDELETED"]) ?? "") && !/^yes$/i.test(textOf(row["ISCANCELLED"]) ?? ""))
+      .map(toDayBookEntry)
+      .filter((e) => !e.date || (e.date >= from && e.date <= to))
+      .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || Number(a.masterId ?? 0) - Number(b.masterId ?? 0));
   }
 
   async findVouchers(opts: { from: string; to: string; voucherType?: string; voucherNumber?: string; company?: string }): Promise<DayBookEntry[]> {
@@ -242,6 +270,13 @@ function toDayBookEntry(row: Record<string, unknown>): DayBookEntry {
     amount: debit > 0 ? Math.round(debit * 100) / 100 : undefined,
     lines
   };
+}
+
+/** Tally prefixes some reserved values with control characters (e.g. "\u0004 Primary"). */
+function cleanText(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const v = value.replace(/\p{Cc}/gu, "").trim();
+  return v === "" ? undefined : v;
 }
 
 function nestedGstin(raw: Record<string, unknown> | undefined): string | undefined {

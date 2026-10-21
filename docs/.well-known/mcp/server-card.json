@@ -1,10 +1,21 @@
 {
   "name": "india-stack-mcp",
   "description": "MCP servers for Indian accounting and tax: TallyPrime (ledgers, vouchers, day book, trial balance, purchase register), Zoho Books (contacts, invoices, payments with GST fields) and GST (GSTIN validation, e-invoice schema v1.1 JSON, GSTR-2B reconciliation). Writes are dry-run by default and destructive actions need human approval.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "homepage": "https://rishiksai.online",
   "repository": "https://github.com/rishiksaib/india-stack-mcp",
   "transport": "stdio",
-  "keywords": ["mcp", "tally", "tallyprime", "zoho-books", "gst", "gstin", "e-invoice", "gstr-2b", "india", "accounting"],
+  "keywords": [
+    "mcp",
+    "tally",
+    "tallyprime",
+    "zoho-books",
+    "gst",
+    "gstin",
+    "e-invoice",
+    "gstr-2b",
+    "india",
+    "accounting"
+  ],
   "license": "Apache-2.0"
 }

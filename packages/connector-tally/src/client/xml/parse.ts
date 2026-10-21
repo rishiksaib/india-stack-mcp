@@ -41,6 +41,10 @@ export function textOf(value: unknown): string | undefined {
   return undefined;
 }
 
+// Real TallyPrime responses carry a CMPINFO block of object counts (<VOUCHER>4</VOUCHER>,
+// <LEDGER>17</LEDGER>, ...). Those are not records and must never be searched.
+const SKIP_SUBTREES = new Set(["CMPINFO"]);
+
 /** Depth-first search for elements whose tag matches, at any depth, in document order. */
 export function findElements(node: unknown, match: (tag: string) => boolean, out: Array<Record<string, unknown>> = []): Array<Record<string, unknown>> {
   if (Array.isArray(node)) {
@@ -49,7 +53,7 @@ export function findElements(node: unknown, match: (tag: string) => boolean, out
   }
   if (!isRecord(node)) return out;
   for (const [key, val] of Object.entries(node)) {
-    if (key.startsWith("@_") || key === "#text") continue;
+    if (key.startsWith("@_") || key === "#text" || SKIP_SUBTREES.has(key.toUpperCase())) continue;
     if (match(key)) {
       for (const v of asArray(val)) {
         if (isRecord(v)) out.push(v);
@@ -116,7 +120,8 @@ export function extractRecords(parsed: Record<string, unknown>, collectionId: st
 
 /** Voucher objects from a Day Book (or any voucher) export, at any depth. */
 export function extractDayBook(parsed: Record<string, unknown>): Array<Record<string, unknown>> {
-  const vouchers = findElements(parsed, (tag) => /^VOUCHER$/i.test(tag));
+  // A voucher record has child fields; a bare text value is never a voucher.
+  const vouchers = findElements(parsed, (tag) => /^VOUCHER$/i.test(tag)).filter((v) => Object.keys(v).some((k) => k !== "#text"));
   if (vouchers.length > 0) return vouchers;
   return findElements(parsed, (tag) => /^DAYBOOK(\.LIST)?$/i.test(tag));
 }
