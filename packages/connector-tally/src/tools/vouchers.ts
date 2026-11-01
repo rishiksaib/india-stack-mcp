@@ -23,7 +23,7 @@ export function makeVoucherTools(client: TallyClient): RegisteredTool[] {
   const createVoucher = defineTool({
     name: "tally_create_voucher",
     description:
-      "Create an accounting voucher (Sales, Purchase, Payment, Receipt, Journal, Credit Note, Debit Note). Lines must balance: positive amounts are debits, negative are credits. Defaults to a dry-run preview.",
+      "Create an accounting voucher (Sales, Purchase, Payment, Receipt, Journal, Credit Note, Debit Note). Lines must balance: positive amounts are debits, negative are credits (e.g. Sales: customer +11800, Sales -10000, Output CGST -900, Output SGST -900); the connector converts to Tally's own XML signs. Defaults to a dry-run preview.",
     scope: "write",
     inputSchema: {
       voucher_type: z.enum(["Sales", "Purchase", "Payment", "Receipt", "Journal", "Credit Note", "Debit Note"]).describe("Voucher type."),

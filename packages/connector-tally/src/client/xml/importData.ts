@@ -1,8 +1,14 @@
 import { compactDate, xmlEscape } from "./envelope.js";
 import type { CreateLedgerInput, CreateVoucherInput } from "../types.js";
 
+/**
+ * Sign convention: the connector's public API is the accounting one — positive
+ * = debit, negative = credit. Tally's XML is the reverse (a debit is written as
+ * ISDEEMEDPOSITIVE=Yes with a NEGATIVE amount, per Tally's own import samples),
+ * so amounts are negated here, at the XML boundary, and nowhere else.
+ */
 export function ledgerImportMessage(input: CreateLedgerInput): string {
-  const ob = input.openingBalance && input.openingBalance.trim() !== "" ? input.openingBalance : "0.00";
+  const ob = toTallyOpeningBalance(input.openingBalance);
   return [
     '<TALLYMESSAGE xmlns:UDF="TallyUDF">',
     `<LEDGER NAME="${xmlEscape(input.name)}" Action="Create">`,
@@ -20,8 +26,8 @@ export function voucherImportMessage(input: CreateVoucherInput): string {
   const reference = input.reference ? `<REFERENCE>${xmlEscape(input.reference)}</REFERENCE>` : "";
   const entries = input.lines
     .map((line) => {
-      const amount = toTallyAmount(line.amount);
-      const deemedPositive = line.amount < 0 ? "Yes" : "No";
+      const amount = toTallyAmount(-line.amount);
+      const deemedPositive = line.amount > 0 ? "Yes" : "No";
       return [
         "<ALLLEDGERENTRIES.LIST>",
         `<LEDGERNAME>${xmlEscape(line.ledgerName)}</LEDGERNAME>`,
@@ -67,6 +73,15 @@ export function voucherDeleteMessage(opts: { remoteId?: string; voucherNumber?: 
     ].join("");
   }
   throw new Error("voucher deletion requires remote_id, or voucher_type + voucher_number + date");
+}
+
+/** Opening balance in the public convention ("5000" = debit) → Tally XML ("-5000.00"). */
+export function toTallyOpeningBalance(raw: string | undefined): string {
+  const text = (raw ?? "").replace(/,/g, "").trim();
+  if (text === "") return "0.00";
+  const value = Number(text);
+  if (!Number.isFinite(value)) throw new Error(`opening balance must be a number like "5000" or "-5000", got "${raw}"`);
+  return value === 0 ? "0.00" : (-value).toFixed(2);
 }
 
 export function toTallyAmount(amount: number): number {

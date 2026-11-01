@@ -55,8 +55,8 @@ describe("TallyClient against a stub gateway", () => {
         date: "2024-04-05",
         partyLedger: "Sunrise Stores",
         lines: [
-          { ledgerName: "Sunrise Stores", amount: -11800 },
-          { ledgerName: "Sales Account", amount: 11800 }
+          { ledgerName: "Sunrise Stores", amount: 11800 },
+          { ledgerName: "Sales Account", amount: -11800 }
         ]
       },
       { dryRun: true }
@@ -73,8 +73,8 @@ describe("TallyClient against a stub gateway", () => {
           kind: "Journal",
           date: "2024-04-05",
           lines: [
-            { ledgerName: "A", amount: -100 },
-            { ledgerName: "B", amount: 90 }
+            { ledgerName: "A", amount: 100 },
+            { ledgerName: "B", amount: -90 }
           ]
         },
         { dryRun: false }
@@ -106,8 +106,8 @@ describe("TallyClient against a stub gateway", () => {
         kind: "Sales",
         date: "2024-04-05",
         lines: [
-          { ledgerName: "Party", amount: -100 },
-          { ledgerName: "Sales", amount: 100 }
+          { ledgerName: "Party", amount: 100 },
+          { ledgerName: "Sales", amount: -100 }
         ]
       },
       { dryRun: false, company: "Acme Traders" }

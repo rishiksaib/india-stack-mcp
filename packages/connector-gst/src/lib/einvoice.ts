@@ -48,7 +48,9 @@ export interface EinvoicePayload {
   };
 }
 
-const VALID_RATES = new Set([0, 0.1, 0.25, 1, 1.5, 3, 4, 5, 6, 7.5, 12, 18, 28]);
+// 40% is the GST 2.0 slab for sin/luxury goods (22 Sep 2025); 12% and 28% remain
+// valid for the few items still notified at those rates.
+const VALID_RATES = new Set([0, 0.1, 0.25, 1, 1.5, 3, 4, 5, 6, 7.5, 12, 18, 28, 40]);
 
 function toDdMmYyyy(isoDate: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
@@ -107,8 +109,9 @@ export function buildEinvoicePayload(input: EinvoiceDocInput): EinvoicePayload {
     const sellerState = input.seller.stateCode;
     const buyerState = input.buyer.stateCode;
     if (supplyType === "B2B" && sellerState === buyerState) {
-      cgst = round2(taxAmt / 2);
-      sgst = round2(taxAmt - cgst);
+      // Two equal halves: the IRP rejects intra-state lines where CGST ≠ SGST.
+      cgst = round2((assAmt * item.taxRatePercent) / 200);
+      sgst = cgst;
     } else {
       igst = taxAmt;
     }

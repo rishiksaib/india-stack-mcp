@@ -49,14 +49,14 @@ describe("voucher message builder", () => {
     partyLedger: "Sunrise Stores",
     narration: "Test sale",
     lines: [
-      { ledgerName: "Sunrise Stores", amount: -11800 },
-      { ledgerName: "Sales Account", amount: 10000 },
-      { ledgerName: "Output CGST", amount: 900 },
-      { ledgerName: "Output SGST", amount: 900 }
+      { ledgerName: "Sunrise Stores", amount: 11800 },
+      { ledgerName: "Sales Account", amount: -10000 },
+      { ledgerName: "Output CGST", amount: -900 },
+      { ledgerName: "Output SGST", amount: -900 }
     ]
   };
 
-  it("maps debits positive / credits negative with ISDEEMEDPOSITIVE", () => {
+  it("writes debits (positive) as Tally's ISDEEMEDPOSITIVE=Yes with a negative AMOUNT, credits the reverse", () => {
     const msg = voucherImportMessage(voucher);
     expect(msg).toContain('<VOUCHER VCHTYPE="Sales" ACTION="Create" OBJVIEW="Accounting Voucher View">');
     expect(msg).toContain("<DATE>20240405</DATE>");
@@ -107,7 +107,10 @@ describe("parsers", () => {
   });
 
   it("parses balances with Dr/Cr and sign conventions", () => {
-    expect(parseBalance("-11800.00")).toBe(-11800);
+    // Raw Tally numbers are debit-negative; the connector returns positive = debit.
+    expect(parseBalance("-11800.00")).toBe(11800);
+    expect(parseBalance("25000.00")).toBe(-25000);
+    expect(parseBalance("0")).toBe(0);
     expect(parseBalance("25,000.00 Dr")).toBe(25000);
     expect(parseBalance("25000.00 Cr")).toBe(-25000);
     expect(parseBalance(undefined)).toBeUndefined();

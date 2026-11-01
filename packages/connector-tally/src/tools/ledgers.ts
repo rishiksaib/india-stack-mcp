@@ -41,7 +41,7 @@ export function makeLedgerTools(client: TallyClient): RegisteredTool[] {
     inputSchema: {
       name: z.string().min(1).describe("New ledger name; must not already exist."),
       parent: z.string().min(1).describe("Parent group exactly as named in Tally."),
-      opening_balance: z.string().default("0").describe("Opening balance like '0' or '-5000' (negative = credit)."),
+      opening_balance: z.string().default("0").describe("Opening balance: positive = debit (a customer who owes you), negative = credit; e.g. '0', '5000' or '-5000'."),
       company: companyParam
     },
     handler: async (args) => {

@@ -111,8 +111,11 @@ export function parseBalance(raw: unknown): number | undefined {
   const s = String(raw).replace(/,/g, "").trim();
   if (/\bDr\b/i.test(s)) return magnitude(s, 1);
   if (/\bCr\b/i.test(s)) return magnitude(s, -1);
+  // A bare number is in Tally's XML convention (debit negative): flip it so
+  // every balance this connector returns is positive = debit, like "Dr" text.
   const n = parseFloat(s.replace(/[^0-9.\-]/g, ""));
-  return Number.isNaN(n) ? undefined : n;
+  if (Number.isNaN(n)) return undefined;
+  return n === 0 ? 0 : -n;
 }
 
 function magnitude(s: string, sign: number): number {

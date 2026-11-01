@@ -38,8 +38,11 @@ Tally XML gateway client (HTTP POST localhost:9000)
 
 ## Sign conventions
 
-Positive amount = debit (`ISDEEMEDPOSITIVE=No`), negative = credit
-(`ISDEEMEDPOSITIVE=Yes`). Vouchers must sum to zero; the connector enforces this before
+Every amount the tools accept or return uses the accounting convention: positive = debit,
+negative = credit. Tally's XML uses the reverse — a debit line is `ISDEEMEDPOSITIVE=Yes`
+with a negative `AMOUNT`, a credit line `ISDEEMEDPOSITIVE=No` with a positive one — so
+the client negates amounts when writing XML and when reading bare numbers back
+(`parseBalance`; "Dr"/"Cr" text is already unambiguous). Vouchers must sum to zero; the connector enforces this before
 sending anything to Tally.
 
 ## Adding a connector
